@@ -35,6 +35,10 @@ If you don't run `scrapers.run_all` manually first, the app does it automaticall
 
 The app scrapes both sources once daily at 04:00 SAST (`scheduler.py`) and keeps the SQLite DB updated in place — no separate cron job needed. Note: Render's free tier has no persistent disk, so `races.db` resets on each redeploy (not on sleep/wake, just on new deploys) — the app re-scrapes automatically on startup whenever it finds an empty DB, so this self-heals within a minute of a redeploy.
 
+### Keeping it awake
+
+Render's free tier sleeps the app after 15 minutes of no traffic, and a sleeping instance won't run the 04:00 scheduled scrape. `.github/workflows/keepalive.yml` pings the live URL every 10 minutes via GitHub Actions (free, no extra account needed) to keep it awake. If you rename the Render service, update the URL in that file to match. GitHub disables scheduled workflows automatically after 60 days with no commits to the repo — if pings stop, re-enable it from the repo's Actions tab.
+
 ## Get races into Google Calendar
 
 In Google Calendar (works the same on the phone app): **Settings → Add calendar → From URL**, paste:
