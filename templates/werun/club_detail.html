@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ club.name }} - WeRun{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <h2 style="margin-top:0;">{{ club.name }}</h2>
+    <p class="club-meta" style="color:#888;">
+      {{ club.city + ', ' if club.city else '' }}{{ club.province }}
+      {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
+    </p>
+    {% if club.description %}<p>{{ club.description }}</p>{% endif %}
+
+    {% if not current_user %}
+      <p><a href="/werun/login">Log in</a> to join this club and chat with members.</p>
+    {% elif not is_member %}
+      <form method="post" action="/werun/clubs/{{ club.id }}/join">
+        <button type="submit">Join club</button>
+      </form>
+    {% else %}
+      <p style="font-size:0.85rem;color:#888;">You're a member of this club.</p>
+      {% include "werun/_chat.html" %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

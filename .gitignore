@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 races.db
 server.log
+.env

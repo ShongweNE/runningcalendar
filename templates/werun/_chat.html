@@ -1,0 +1,75 @@
+{# Included by club_detail.html and pairing_chat.html. Expects: room_id, current_user #}
+<div class="panel" style="margin-top:1rem;">
+  <h3 style="margin-top:0;">Chat</h3>
+  <div id="chat-messages" style="max-height:320px;overflow-y:auto;margin-bottom:0.75rem;font-size:0.9rem;"></div>
+  <form id="chat-form" style="display:flex;gap:0.5rem;margin:0;">
+    <input type="text" id="chat-input" placeholder="Message..." maxlength="2000" style="margin-bottom:0;flex:1;" autocomplete="off">
+    <button type="submit">Send</button>
+  </form>
+  <div id="chat-error" class="error" style="display:none;margin-top:0.5rem;margin-bottom:0;"></div>
+</div>
+<script>
+(function () {
+  const roomId = {{ room_id }};
+  const myUserId = {{ current_user.id }};
+  const messagesEl = document.getElementById('chat-messages');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input');
+  const errorEl = document.getElementById('chat-error');
+  let sinceId = 0;
+  let pollTimer = null;
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderMessages(messages) {
+    for (const m of messages) {
+      const mine = m.user_id === myUserId;
+      const row = document.createElement('div');
+      row.style.marginBottom = '0.4rem';
+      row.innerHTML = `<strong>${escapeHtml(m.display_name)}${mine ? ' (you)' : ''}:</strong> ${escapeHtml(m.body)}`;
+      messagesEl.appendChild(row);
+      sinceId = Math.max(sinceId, m.id);
+    }
+    if (messages.length) messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function poll() {
+    fetch(`/werun/api/rooms/${roomId}/messages?since_id=${sinceId}`)
+      .then(r => { if (!r.ok) throw new Error('poll failed'); return r.json(); })
+      .then(renderMessages)
+      .catch(() => {});
+  }
+
+  function schedulePoll() {
+    if (pollTimer) clearTimeout(pollTimer);
+    const interval = document.hidden ? 20000 : 4000;
+    pollTimer = setTimeout(() => { poll(); schedulePoll(); }, interval);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const body = input.value.trim();
+    if (!body) return;
+    errorEl.style.display = 'none';
+    fetch(`/werun/api/rooms/${roomId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'body=' + encodeURIComponent(body),
+    }).then(r => {
+      if (!r.ok) throw new Error('send failed');
+      input.value = '';
+      poll();
+    }).catch(() => {
+      errorEl.textContent = 'Could not send message. Please try again.';
+      errorEl.style.display = 'block';
+    });
+  });
+
+  document.addEventListener('visibilitychange', schedulePoll);
+
+  poll();
+  schedulePoll();
+})();
+</script>

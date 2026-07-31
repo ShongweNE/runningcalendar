@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}My First Marathon Chat - WeRun{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <h2 style="margin-top:0;">{{ pairing.target_race or 'First marathon' }} pairing</h2>
+    {% if pairing.note %}<p style="color:#888;">{{ pairing.note }}</p>{% endif %}
+    {% include "werun/_chat.html" %}
+  </div>
+</div>
+{% endblock %}

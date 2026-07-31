@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}My Profile - WeRun{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="max-width:480px;">
+    <h2>My profile</h2>
+    <form method="post" action="/werun/profile">
+      <label for="display_name">Display name</label>
+      <input type="text" id="display_name" name="display_name" value="{{ current_user.display_name }}" required>
+
+      <label for="city">City</label>
+      <input type="text" id="city" name="city" value="{{ current_user.city or '' }}">
+
+      <label for="province">Province</label>
+      <select id="province" name="province">
+        <option value="">Select a province</option>
+        {% for p in provinces %}
+        <option value="{{ p }}" {{ 'selected' if current_user.province == p else '' }}>{{ p }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="experience_level">Running experience</label>
+      <select id="experience_level" name="experience_level">
+        <option value="beginner" {{ 'selected' if current_user.experience_level == 'beginner' else '' }}>First-timer / beginner</option>
+        <option value="experienced" {{ 'selected' if current_user.experience_level == 'experienced' else '' }}>Experienced runner</option>
+        <option value="both" {{ 'selected' if current_user.experience_level == 'both' else '' }}>Both (experienced, still learning)</option>
+      </select>
+
+      <label for="bio">Bio</label>
+      <textarea id="bio" name="bio" rows="3">{{ current_user.bio or '' }}</textarea>
+
+      <button type="submit">Save</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

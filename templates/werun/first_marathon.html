@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}My First Marathon - WeRun{% endblock %}
+{% block extra_style %}
+  .req-row { border-bottom: 1px solid #e3e3e6; padding: 0.75rem 0; }
+  .req-row:last-child { border-bottom: none; }
+  .req-meta { font-size: 0.85rem; color: #888; margin-top: 0.15rem; }
+{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <h2 style="margin-top:0;">My First Marathon</h2>
+    <p style="color:#888;font-size:0.9rem;">First time training for a race? Ask for an experienced runner to pair up with. Already done a few? Offer to mentor someone below.</p>
+
+    {% if not open_requests %}
+      <p>No open requests right now.</p>
+    {% endif %}
+    {% for r in open_requests %}
+    <div class="req-row">
+      <strong>{{ r.mentee_name }}</strong>
+      <div class="req-meta">
+        {{ r.mentee_city + ', ' if r.mentee_city else '' }}{{ r.mentee_province or '' }}
+        {% if r.target_race %} &middot; training for {{ r.target_race }}{% endif %}
+      </div>
+      {% if r.note %}<p style="margin:0.4rem 0 0;">{{ r.note }}</p>{% endif %}
+      {% if current_user and current_user.id != r.mentee_id %}
+      <form method="post" action="/werun/first-marathon/{{ r.id }}/accept" style="margin-top:0.5rem;">
+        <button type="submit">Offer to mentor</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <h3 style="margin-top:2rem;">Request a mentor</h3>
+    {% if current_user %}
+      <form method="post" action="/werun/first-marathon/request">
+        <label for="target_race">Race you're training for (optional)</label>
+        <input type="text" id="target_race" name="target_race">
+
+        <label for="note">Note (optional)</label>
+        <textarea id="note" name="note" rows="2" placeholder="A bit about where you're starting from..."></textarea>
+
+        <button type="submit">Post request</button>
+      </form>
+    {% else %}
+      <p><a href="/werun/login">Log in</a> to request a mentor.</p>
+    {% endif %}
+  </div>
+
+  {% if current_user and my_pairings %}
+  <div class="panel" style="flex: 0 0 300px; height: fit-content;">
+    <h3 style="margin-top:0;">My pairings</h3>
+    {% for p in my_pairings %}
+    <div class="req-row">
+      <div>{{ p.target_race or 'First marathon' }} &mdash; {{ p.status }}</div>
+      {% if p.status == 'active' %}
+      <a href="/werun/pairings/{{ p.id }}">Open chat</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -13,3 +13,7 @@ jobs:
         run: |
           curl -sS -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" \
             https://race-calendar-sa.onrender.com/ || echo "Ping failed (app may have been cold-starting) -- not fatal"
+      - name: Ping Postgres (prevents Supabase's 7-day inactivity pause)
+        run: |
+          curl -sS -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" \
+            https://race-calendar-sa.onrender.com/werun/health || echo "DB ping failed -- not fatal, but check Supabase isn't paused"

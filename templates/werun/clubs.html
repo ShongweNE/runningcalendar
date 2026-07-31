@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Clubs - WeRun{% endblock %}
+{% block extra_style %}
+  .club-row { border-bottom: 1px solid #e3e3e6; padding: 0.75rem 0; }
+  .club-row:last-child { border-bottom: none; }
+  .club-row a { font-weight: 600; text-decoration: none; opacity: 1; }
+  .club-meta { font-size: 0.85rem; color: #888; margin-top: 0.15rem; }
+{% endblock %}
+{% block content %}
+<div class="layout">
+  <div id="filters" class="panel" style="flex: 0 0 220px; height: fit-content;">
+    <h3 style="margin-top:0;font-size:0.9rem;text-transform:uppercase;letter-spacing:.04em;color:#888;">Province</h3>
+    <form method="get" action="/werun/clubs">
+      <select name="province" onchange="this.form.submit()">
+        <option value="">All provinces</option>
+        {% for p in provinces %}
+        <option value="{{ p }}" {{ 'selected' if selected_province == p else '' }}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <h2 style="margin-top:0;">Running clubs & groups</h2>
+    {% if not clubs %}
+      <p>No clubs listed yet{{ ' in ' + selected_province if selected_province else '' }}.</p>
+    {% endif %}
+    {% for club in clubs %}
+    <div class="club-row">
+      <a href="/werun/clubs/{{ club.id }}">{{ club.name }}</a>
+      <div class="club-meta">
+        {{ club.city + ', ' if club.city else '' }}{{ club.province }}
+        {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <h3 style="margin-top:2rem;">Add your club</h3>
+    {% if current_user %}
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <form method="post" action="/werun/clubs">
+        <label for="name">Club name</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="2"></textarea>
+
+        <label for="city">City</label>
+        <input type="text" id="city" name="city">
+
+        <label for="province">Province</label>
+        <select id="province" name="province" required>
+          <option value="">Select a province</option>
+          {% for p in provinces %}
+          <option value="{{ p }}">{{ p }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="meeting_schedule">Meeting schedule</label>
+        <input type="text" id="meeting_schedule" name="meeting_schedule" placeholder="e.g. Tuesdays &amp; Saturdays, 6am">
+
+        <button type="submit">Create club</button>
+      </form>
+    {% else %}
+      <p><a href="/werun/login">Log in</a> to add a club.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
