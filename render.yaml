@@ -5,10 +5,3 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    disk:
-      name: race-calendar-data
-      mountPath: /var/data
-      sizeGB: 1
-    envVars:
-      - key: RACE_DB_PATH
-        value: /var/data/races.db

@@ -30,10 +30,10 @@ If you don't run `scrapers.run_all` manually first, the app does it automaticall
 ## Deploy (Render.com, free tier)
 
 1. Push this folder to a GitHub repo.
-2. In Render, "New +" → "Blueprint" → point it at the repo. `render.yaml` here defines the web service, a 1GB persistent disk for `races.db`, and the start command — Render picks it up automatically.
+2. In Render, "New +" → "Blueprint" → point it at the repo. `render.yaml` here defines the web service and start command — Render picks it up automatically.
 3. Once deployed, your app is live at `https://<your-service>.onrender.com`.
 
-The app scrapes both sources once daily at 04:00 SAST (`scheduler.py`) and keeps the SQLite DB updated in place — no separate cron job needed.
+The app scrapes both sources once daily at 04:00 SAST (`scheduler.py`) and keeps the SQLite DB updated in place — no separate cron job needed. Note: Render's free tier has no persistent disk, so `races.db` resets on each redeploy (not on sleep/wake, just on new deploys) — the app re-scrapes automatically on startup whenever it finds an empty DB, so this self-heals within a minute of a redeploy.
 
 ## Get races into Google Calendar
 
