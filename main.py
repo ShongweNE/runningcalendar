@@ -1,7 +1,9 @@
 import json
+import logging
 import threading
 from contextlib import asynccontextmanager
 from datetime import date
+from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -12,17 +14,22 @@ from ics_feed import build_ics
 from scheduler import start_scheduler
 from scrapers.run_all import run_all
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not get_upcoming_races():
         threading.Thread(target=run_all, daemon=True).start()
-    start_scheduler()
+    try:
+        start_scheduler()
+    except Exception:
+        logger.exception("Scheduler failed to start; site still serves existing data")
     yield
 
 
 app = FastAPI(title="SA Race Calendar", lifespan=lifespan)
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 def _row_to_dict(row) -> dict:
