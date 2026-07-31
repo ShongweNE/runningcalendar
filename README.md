@@ -1,0 +1,54 @@
+# SA Race Calendar
+
+Aggregates upcoming South African running races (date, location, distances, entry price) from public race-listing sites into one calendar — a web page, a JSON API, and a `.ics` feed you can subscribe to from Google Calendar.
+
+## Data sources
+
+- **runningcalendar.co.za** — scraped HTML (public listing pages, `robots.txt` allows it)
+- **startingline.co.za** — its public JSON API at `api.startingline.co.za/api/events`
+
+Both are re-scraped daily. `racepass.com` was investigated but its only working public endpoint returns an unscoped global dataset (8MB+, not filtered to South Africa or to races) rather than a clean listing API, so it was left out — the two sources above already give ~750+ upcoming races.
+
+## Run locally
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate   # Windows Git Bash; use .venv\Scripts\activate.bat on cmd.exe
+pip install -r requirements.txt
+
+# First scrape (populates races.db) — takes ~20s
+python -m scrapers.run_all
+
+# Start the web app
+uvicorn main:app --reload
+```
+
+Open http://127.0.0.1:8000 for the calendar, http://127.0.0.1:8000/api/races for the raw JSON, and http://127.0.0.1:8000/calendar.ics for the iCalendar feed.
+
+If you don't run `scrapers.run_all` manually first, the app does it automatically on startup when `races.db` is empty.
+
+## Deploy (Render.com, free tier)
+
+1. Push this folder to a GitHub repo.
+2. In Render, "New +" → "Blueprint" → point it at the repo. `render.yaml` here defines the web service, a 1GB persistent disk for `races.db`, and the start command — Render picks it up automatically.
+3. Once deployed, your app is live at `https://<your-service>.onrender.com`.
+
+The app scrapes both sources once daily at 04:00 SAST (`scheduler.py`) and keeps the SQLite DB updated in place — no separate cron job needed.
+
+## Get races into Google Calendar
+
+In Google Calendar (works the same on the phone app): **Settings → Add calendar → From URL**, paste:
+
+```
+https://<your-service>.onrender.com/calendar.ics
+```
+
+Google polls subscribed URL calendars every several hours automatically, so new races that get scraped show up in your calendar without you doing anything.
+
+## Project layout
+
+- `scrapers/` — one adapter per source, normalized into the `Race` dataclass (`scrapers/base.py`)
+- `db.py` — SQLite storage, upsert + cross-source dedup by normalized name + date
+- `scheduler.py` — daily background re-scrape (APScheduler)
+- `main.py` — FastAPI app: calendar page, `/api/races`, `/calendar.ics`
+- `templates/calendar.html` — FullCalendar.js UI with distance/province filters
