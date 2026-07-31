@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SA Race Calendar</title>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f7f7f8;
+    color: #1c1c1e;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #17181a; color: #e8e8ea; }
+    .panel { background: #232427 !important; border-color: #34363a !important; }
+    select, input { background: #17181a; color: #e8e8ea; border-color: #34363a; }
+    a { color: #7ab7ff; }
+  }
+  header {
+    padding: 1rem 1.25rem;
+    font-weight: 700;
+    font-size: 1.25rem;
+  }
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0 1rem 2rem;
+  }
+  .panel {
+    background: white;
+    border: 1px solid #e3e3e6;
+    border-radius: 10px;
+    padding: 1rem;
+  }
+  #filters { flex: 0 0 220px; height: fit-content; }
+  #filters h3 { margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: .04em; color: #888; }
+  #filters label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; cursor: pointer; }
+  #calendar-wrap { flex: 1 1 480px; min-width: 280px; }
+  select, input[type=date] { width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 1rem; }
+  .ics-link { display: block; margin-top: 1rem; font-size: 0.85rem; }
+  .fc-event { cursor: pointer; }
+</style>
+</head>
+<body>
+<header>🏃 South Africa Race Calendar</header>
+<div class="layout">
+  <div id="filters" class="panel">
+    <h3>Distance</h3>
+    <label><input type="checkbox" class="dist-filter" value="5km"> 5km</label>
+    <label><input type="checkbox" class="dist-filter" value="10km"> 10km</label>
+    <label><input type="checkbox" class="dist-filter" value="half"> Half Marathon</label>
+    <label><input type="checkbox" class="dist-filter" value="marathon"> Marathon</label>
+    <label><input type="checkbox" class="dist-filter" value="ultra"> Ultra / Trail</label>
+
+    <h3>Province</h3>
+    <select id="province-filter">
+      <option value="">All provinces</option>
+      <option>Eastern Cape</option>
+      <option>Free State</option>
+      <option>Gauteng</option>
+      <option>KwaZulu-Natal</option>
+      <option>Limpopo</option>
+      <option>Mpumalanga</option>
+      <option>North West</option>
+      <option>Northern Cape</option>
+      <option>Western Cape</option>
+    </select>
+
+    <a class="ics-link" href="/calendar.ics">📅 Subscribe in Google Calendar (.ics feed)</a>
+  </div>
+  <div id="calendar-wrap" class="panel">
+    <div id="calendar"></div>
+  </div>
+</div>
+
+<script>
+function selectedDistances() {
+  return Array.from(document.querySelectorAll('.dist-filter:checked')).map(el => el.value);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const calendarEl = document.getElementById('calendar');
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    height: 'auto',
+    events: function (info, successCallback, failureCallback) {
+      const dists = selectedDistances();
+      const province = document.getElementById('province-filter').value;
+      const requests = (dists.length ? dists : ['']).map(dist => {
+        const params = new URLSearchParams();
+        if (dist) params.set('distance', dist);
+        if (province) params.set('province', province);
+        return fetch('/api/races?' + params.toString()).then(r => r.json());
+      });
+      Promise.all(requests).then(results => {
+        const seen = new Set();
+        const events = [];
+        for (const races of results) {
+          for (const race of races) {
+            const key = race.name + race.date;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const price = race.price_from ? `from R${race.price_from}` : 'price TBC';
+            events.push({
+              title: `${race.name} (${price})`,
+              start: race.date,
+              url: race.source_url,
+              extendedProps: race,
+            });
+          }
+        }
+        successCallback(events);
+      }).catch(failureCallback);
+    },
+    eventClick: function (info) {
+      info.jsEvent.preventDefault();
+      window.open(info.event.url, '_blank');
+    },
+  });
+  calendar.render();
+
+  document.querySelectorAll('.dist-filter').forEach(el =>
+    el.addEventListener('change', () => calendar.refetchEvents())
+  );
+  document.getElementById('province-filter').addEventListener('change', () => calendar.refetchEvents());
+});
+</script>
+</body>
+</html>
