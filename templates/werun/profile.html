@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block title %}My Profile - WeRun{% endblock %}
 {% block content %}
-<div class="layout">
-  <div class="panel" style="max-width:480px;">
-    <h2>My profile</h2>
+<div class="layout centered">
+  <div class="panel auth-card" style="max-width:480px;">
+    <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
+      <div class="avatar avatar-0" style="width:3rem;height:3rem;font-size:1.2rem;">{{ current_user.display_name[0] | upper }}</div>
+      <h2 style="margin:0;">My profile</h2>
+    </div>
     <form method="post" action="/werun/profile">
       <label for="display_name">Display name</label>
       <input type="text" id="display_name" name="display_name" value="{{ current_user.display_name }}" required>

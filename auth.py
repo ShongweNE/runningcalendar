@@ -1,3 +1,6 @@
+import hashlib
+import secrets
+
 import bcrypt
 from fastapi import HTTPException, Request
 
@@ -10,6 +13,18 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+
+
+def generate_reset_token() -> tuple[str, str]:
+    """Returns (raw_token, token_hash). Only the hash is stored in the DB --
+    the raw token goes in the emailed link and is never persisted, so a DB
+    leak alone can't be used to reset anyone's password."""
+    raw_token = secrets.token_urlsafe(32)
+    return raw_token, hash_token(raw_token)
+
+
+def hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
 def log_in_user(request: Request, user_id: int) -> None:

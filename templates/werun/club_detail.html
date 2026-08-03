@@ -3,21 +3,26 @@
 {% block content %}
 <div class="layout">
   <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
-    <h2 style="margin-top:0;">{{ club.name }}</h2>
-    <p class="club-meta" style="color:#888;">
-      {{ club.city + ', ' if club.city else '' }}{{ club.province }}
-      {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
-    </p>
-    {% if club.description %}<p>{{ club.description }}</p>{% endif %}
+    <div style="display:flex;align-items:flex-start;gap:0.9rem;">
+      <div style="width:3rem;height:3rem;border-radius:11px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">🏃</div>
+      <div>
+        <h2 style="margin:0 0 0.2rem;">{{ club.name }}</h2>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">
+          {{ club.city + ', ' if club.city else '' }}{{ club.province }}
+          {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
+        </p>
+      </div>
+    </div>
+    {% if club.description %}<p style="margin-top:1rem;">{{ club.description }}</p>{% endif %}
 
     {% if not current_user %}
-      <p><a href="/werun/login">Log in</a> to join this club and chat with members.</p>
+      <p style="margin-top:1rem;"><a href="/werun/login">Log in</a> to join this club and chat with members.</p>
     {% elif not is_member %}
-      <form method="post" action="/werun/clubs/{{ club.id }}/join">
-        <button type="submit">Join club</button>
+      <form method="post" action="/werun/clubs/{{ club.id }}/join" style="margin-top:1rem;">
+        <button type="submit" class="btn-primary">🏃 Join club</button>
       </form>
     {% else %}
-      <p style="font-size:0.85rem;color:#888;">You're a member of this club.</p>
+      <span class="badge badge-active" style="margin-top:1rem;">✓ You're a member</span>
       {% include "werun/_chat.html" %}
     {% endif %}
   </div>

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Sign up - WeRun{% endblock %}
 {% block content %}
-<div class="layout">
-  <div class="panel" style="max-width:420px;">
-    <h2>Create your WeRun account</h2>
+<div class="layout centered">
+  <div class="panel auth-card">
+    <h2>🏃 Create your WeRun account</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="post" action="/werun/signup">
       <label for="display_name">Display name</label>

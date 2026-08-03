@@ -4,24 +4,42 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 {% endblock %}
 {% block extra_style %}
-  #filters { flex: 0 0 220px; height: fit-content; }
-  #filters h3 { margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: .04em; color: #888; }
-  #filters label { display: block; font-size: 0.9rem; margin-bottom: 0.4rem; cursor: pointer; }
+  #filters { flex: 0 0 240px; height: fit-content; }
+  #filters h3 { margin-top: 0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+  .dist-toggle {
+    display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600;
+    padding: 0.4rem 0.6rem; border-radius: 9px; cursor: pointer; margin-bottom: 0.3rem;
+    color: var(--text-muted); transition: background 0.15s;
+  }
+  .dist-toggle:hover { background: var(--border); }
+  .dist-toggle input { width: auto; margin: 0; }
+  .dist-toggle .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }
   #calendar-wrap { flex: 1 1 480px; min-width: 280px; }
-  .ics-link { display: block; margin-top: 1rem; font-size: 0.85rem; }
-  .fc-event { cursor: pointer; }
+  .ics-link { display: flex; align-items: center; gap: 0.4rem; margin-top: 1.25rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+  .fc-event { cursor: pointer; border: none !important; }
+  .fc-daygrid-event { color: var(--fc-event-text-color) !important; }
+  .fc-daygrid-event.badge-5k { background: var(--c-5k-soft); --fc-event-text-color: var(--c-5k-ink); }
+  .fc-daygrid-event.badge-10k { background: var(--c-10k-soft); --fc-event-text-color: var(--c-10k-ink); }
+  .fc-daygrid-event.badge-half { background: var(--c-half-soft); --fc-event-text-color: var(--c-half-ink); }
+  .fc-daygrid-event.badge-marathon { background: var(--c-marathon-soft); --fc-event-text-color: var(--c-marathon-ink); }
+  .fc-daygrid-event.badge-ultra { background: var(--c-ultra-soft); --fc-event-text-color: var(--c-ultra-ink); }
+  .fc-daygrid-event.badge-other { background: var(--border); --fc-event-text-color: var(--text-muted); }
+  .fc-toolbar-title { font-weight: 800 !important; letter-spacing: -0.02em; }
+  .fc-day-today { background: var(--brand-soft) !important; }
+  .fc-button-primary { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text) !important; }
+  .fc-button-primary:hover { box-shadow: var(--shadow-hover); }
 {% endblock %}
 {% block content %}
 <div class="layout">
   <div id="filters" class="panel">
     <h3>Distance</h3>
-    <label><input type="checkbox" class="dist-filter" value="5km"> 5km</label>
-    <label><input type="checkbox" class="dist-filter" value="10km"> 10km</label>
-    <label><input type="checkbox" class="dist-filter" value="half"> Half Marathon</label>
-    <label><input type="checkbox" class="dist-filter" value="marathon"> Marathon</label>
-    <label><input type="checkbox" class="dist-filter" value="ultra"> Ultra / Trail</label>
+    <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="5km"><span class="dot" style="background:var(--c-5k-ink)"></span>5km</label>
+    <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="10km"><span class="dot" style="background:var(--c-10k-ink)"></span>10km</label>
+    <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="half"><span class="dot" style="background:var(--c-half-ink)"></span>Half Marathon</label>
+    <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="marathon"><span class="dot" style="background:var(--c-marathon-ink)"></span>Marathon</label>
+    <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="ultra"><span class="dot" style="background:var(--c-ultra-ink)"></span>Ultra / Trail</label>
 
-    <h3>Province</h3>
+    <h3 style="margin-top:1.25rem;">Province</h3>
     <select id="province-filter">
       <option value="">All provinces</option>
       <option>Eastern Cape</option>
@@ -35,7 +53,7 @@
       <option>Western Cape</option>
     </select>
 
-    <a class="ics-link" href="/calendar.ics">📅 Subscribe in Google Calendar (.ics feed)</a>
+    <a class="ics-link" href="/calendar.ics">📅 Subscribe in Google Calendar</a>
   </div>
   <div id="calendar-wrap" class="panel">
     <div id="calendar"></div>
@@ -46,6 +64,16 @@
 <script>
 function selectedDistances() {
   return Array.from(document.querySelectorAll('.dist-filter:checked')).map(el => el.value);
+}
+
+function badgeClassFor(distances) {
+  const joined = distances.join(' ').toLowerCase();
+  if (joined.includes('ultra') || joined.includes('trail')) return 'badge-ultra';
+  if (joined.includes('half')) return 'badge-half';
+  if (/\bmarathon\b/.test(joined) && !joined.includes('half')) return 'badge-marathon';
+  if (joined.includes('10km') || joined.includes('10 km')) return 'badge-10k';
+  if (joined.includes('5km') || joined.includes('5 km')) return 'badge-5k';
+  return 'badge-other';
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -76,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
               start: race.date,
               url: race.source_url,
               extendedProps: race,
+              classNames: [badgeClassFor(race.distances || [])],
             });
           }
         }

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -6,6 +7,9 @@ from fastapi.templating import Jinja2Templates
 
 import auth
 import social_db as sdb
+from email_sender import send_email
+
+RESET_TOKEN_LIFETIME = timedelta(hours=1)
 
 router = APIRouter(prefix="/werun")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
@@ -92,6 +96,72 @@ def login_submit(request: Request, email: str = Form(...), password: str = Form(
 def logout(request: Request):
     auth.log_out_user(request)
     return RedirectResponse("/", status_code=303)
+
+
+# -- forgot / reset password ------------------------------------------------
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_form(request: Request):
+    return templates.TemplateResponse(
+        "werun/forgot_password.html", _ctx(request, active_tab="login", sent=False)
+    )
+
+
+@router.post("/forgot-password")
+def forgot_password_submit(request: Request, email: str = Form(...)):
+    user = sdb.get_user_by_email(email.strip().lower())
+    if user is not None:
+        raw_token, token_hash = auth.generate_reset_token()
+        expires_at = datetime.now(timezone.utc) + RESET_TOKEN_LIFETIME
+        sdb.create_password_reset_token(user["id"], token_hash, expires_at)
+        reset_url = f"{str(request.base_url).rstrip('/')}/werun/reset-password?token={raw_token}"
+        send_email(
+            to=user["email"],
+            subject="Reset your WeRun password",
+            html_body=(
+                f"<p>Hi {user['display_name']},</p>"
+                f"<p>Click the link below to reset your WeRun password. "
+                f"This link expires in 1 hour and can only be used once.</p>"
+                f'<p><a href="{reset_url}">{reset_url}</a></p>'
+                f"<p>If you didn't request this, you can safely ignore this email.</p>"
+            ),
+        )
+    # Same response whether or not the email matched an account -- otherwise
+    # this form becomes a way to check which emails have WeRun accounts.
+    return templates.TemplateResponse(
+        "werun/forgot_password.html", _ctx(request, active_tab="login", sent=True)
+    )
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+def reset_password_form(request: Request, token: str = ""):
+    valid = bool(token) and sdb.get_valid_reset_token(auth.hash_token(token)) is not None
+    return templates.TemplateResponse(
+        "werun/reset_password.html",
+        _ctx(request, active_tab="login", token=token, valid=valid, error=None),
+    )
+
+
+@router.post("/reset-password")
+def reset_password_submit(request: Request, token: str = Form(...), password: str = Form(...)):
+    reset_token = sdb.get_valid_reset_token(auth.hash_token(token))
+    if reset_token is None:
+        return templates.TemplateResponse(
+            "werun/reset_password.html",
+            _ctx(request, active_tab="login", token=token, valid=False,
+                 error="This reset link is invalid or has expired. Request a new one."),
+            status_code=400,
+        )
+    if len(password) < 8:
+        return templates.TemplateResponse(
+            "werun/reset_password.html",
+            _ctx(request, active_tab="login", token=token, valid=True,
+                 error="Password must be at least 8 characters."),
+            status_code=400,
+        )
+    new_hash = auth.hash_password(password)
+    sdb.consume_reset_token(reset_token["id"], reset_token["user_id"], new_hash)
+    return RedirectResponse("/werun/login", status_code=303)
 
 
 # -- profile --------------------------------------------------------------

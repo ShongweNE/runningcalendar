@@ -30,6 +30,15 @@ Race data lives in a local SQLite file (`races.db`, fine to lose — it re-scrap
    These are passed as separate values rather than one `postgresql://...` URL because Supabase passwords often contain characters (`?`, `+`, `$`, ...) that break URI parsing if not percent-encoded — separate env vars sidestep that entirely.
 4. The app refuses to start if `SECRET_KEY` is unset (sessions can't be signed safely without it) and creates its Postgres tables automatically on first startup — no manual schema step needed.
 
+### Password reset emails (Resend)
+
+Forgotten-password links are sent via [Resend](https://resend.com) (free tier: 100/day, 3000/month).
+
+1. Create a free Resend account and grab an API key.
+2. Add to your env vars (`.env` locally, Render dashboard for deploy): `RESEND_API_KEY=<your key>`.
+3. Without `RESEND_API_KEY` set, the app doesn't fail — it logs the reset link to the console instead, so local dev works without a Resend account at all.
+4. **Domain verification**: until you verify a domain in Resend (Settings → Domains, add the SPF/DKIM records they give you to your DNS), Resend's sandbox mode only delivers to the email address on your own Resend account — reset emails to anyone else will silently not arrive. Once you have a domain, verify it and set `RESEND_FROM_EMAIL=noreply@yourdomain.com` (defaults to Resend's shared `onboarding@resend.com` otherwise).
+
 ## Run locally
 
 ```bash
@@ -51,7 +60,7 @@ If you don't run `scrapers.run_all` manually first, the app does it automaticall
 ## Deploy (Render.com, free tier)
 
 1. Push this folder to a GitHub repo.
-2. In Render, "New +" → "Blueprint" → point it at the repo. `render.yaml` here defines the web service and start command. It declares `SECRET_KEY`/`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` as env vars without values (`sync: false`) so Render prompts you to fill them in during setup rather than storing secrets in the repo — use the same Supabase values from the WeRun setup section above.
+2. In Render, "New +" → "Blueprint" → point it at the repo. `render.yaml` here defines the web service and start command. It declares `SECRET_KEY`/`PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`RESEND_API_KEY` as env vars without values (`sync: false`) so Render prompts you to fill them in during setup rather than storing secrets in the repo — use the same Supabase/Resend values from the setup sections above. Use a **fresh** `SECRET_KEY` for production, not your local dev one.
 3. Once deployed, your app is live at `https://<your-service>.onrender.com`.
 
 The app scrapes both race sources once daily at 04:00 SAST (`scheduler.py`) and keeps the SQLite DB updated in place — no separate cron job needed. Note: Render's free tier has no persistent disk, so `races.db` resets on each redeploy (not on sleep/wake, just on new deploys) — the app re-scrapes automatically on startup whenever it finds an empty DB, so this self-heals within a minute of a redeploy. WeRun's data (accounts, clubs, chat) lives in Supabase instead, specifically so it does **not** get wiped by this.
@@ -82,7 +91,8 @@ Google polls subscribed URL calendars every several hours automatically, so new 
 - `werun.py` — all WeRun routes (signup/login/profile, clubs, My First Marathon, the shared chat API)
 - `templates/base.html` — shared layout + nav (`calendar.html` and everything under `templates/werun/` extend this)
 - `templates/werun/` — WeRun pages; `_chat.html` is a shared partial (message list + polling JS) included by both club chat and pairing chat
+- `email_sender.py` — sends password-reset emails via Resend; logs the link locally instead if `RESEND_API_KEY` isn't set
 
 ### Known limitations
 
-WeRun has no email verification, password reset, or report/block/moderation tooling. Since it's meant to help arrange real-world meetups between people who don't already know each other, that's worth addressing before opening it beyond a small trusted circle.
+WeRun has no email verification or report/block/moderation tooling. Since it's meant to help arrange real-world meetups between people who don't already know each other, that's worth addressing before opening it beyond a small trusted circle. (Password reset does exist — see above.)

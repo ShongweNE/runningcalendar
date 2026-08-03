@@ -4,83 +4,187 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}SA Race Calendar{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: light dark; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f7f7f8;
-    color: #1c1c1e;
+  :root {
+    color-scheme: light dark;
+    --brand: #ff5a36;
+    --brand-dark: #e0431f;
+    --brand-soft: #ffe3d8;
+    --brand-ink: #a3300f;
+    --bg: #f7f6f4;
+    --surface: #ffffff;
+    --text: #201b18;
+    --text-muted: #7a716b;
+    --border: #eae4de;
+    --shadow: 0 1px 2px rgba(30,20,10,0.04), 0 4px 14px rgba(30,20,10,0.06);
+    --shadow-hover: 0 4px 10px rgba(30,20,10,0.06), 0 10px 28px rgba(30,20,10,0.10);
+    --radius: 14px;
+    --c-5k-ink: #1d4ed8; --c-5k-soft: #dbe7ff;
+    --c-10k-ink: #15803d; --c-10k-soft: #dcfce3;
+    --c-half-ink: #b45309; --c-half-soft: #fef1cf;
+    --c-marathon-ink: #b91c1c; --c-marathon-soft: #fde1e1;
+    --c-ultra-ink: #6d28d9; --c-ultra-soft: #ece2ff;
   }
   @media (prefers-color-scheme: dark) {
-    body { background: #17181a; color: #e8e8ea; }
-    .panel { background: #232427 !important; border-color: #34363a !important; }
-    select, input, textarea { background: #17181a; color: #e8e8ea; border-color: #34363a; }
-    a { color: #7ab7ff; }
-    nav { border-bottom-color: #34363a !important; }
+    :root {
+      --bg: #16140f;
+      --surface: #211d19;
+      --text: #f2ede8;
+      --text-muted: #a89e96;
+      --border: #322c26;
+      --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 4px 14px rgba(0,0,0,0.28);
+      --shadow-hover: 0 4px 10px rgba(0,0,0,0.3), 0 12px 28px rgba(0,0,0,0.36);
+      --brand-soft: rgba(255,90,54,0.16);
+      --brand-ink: #ff8f6d;
+      --c-5k-soft: rgba(37,99,235,0.18); --c-5k-ink: #8fb4ff;
+      --c-10k-soft: rgba(22,163,74,0.18); --c-10k-ink: #7fe0a4;
+      --c-half-soft: rgba(180,83,9,0.2); --c-half-ink: #ffc46b;
+      --c-marathon-soft: rgba(185,28,28,0.22); --c-marathon-ink: #ff9d9d;
+      --c-ultra-soft: rgba(124,58,237,0.2); --c-ultra-ink: #c9a9ff;
+    }
   }
-  header {
-    padding: 1rem 1.25rem;
-    font-weight: 700;
-    font-size: 1.25rem;
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
   }
+  h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+  a { color: var(--brand-dark); }
+  @media (prefers-color-scheme: dark) { a { color: var(--brand-ink); } }
+
+  header.brand {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 1.15rem 1.5rem 0.9rem;
+    font-weight: 800; font-size: 1.3rem; letter-spacing: -0.01em;
+  }
+  header.brand .logo-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.1rem; height: 2.1rem; border-radius: 10px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    font-size: 1.15rem;
+  }
+
   nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 0 1.25rem 0.85rem;
-    border-bottom: 1px solid #e3e3e6;
-    margin-bottom: 0.5rem;
-    font-size: 0.92rem;
+    position: sticky; top: 0; z-index: 20;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+    padding: 0.6rem 1.5rem;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
   }
-  nav a { text-decoration: none; color: inherit; opacity: 0.75; }
-  nav a:hover, nav a.active { opacity: 1; text-decoration: underline; }
+  nav a.nav-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    text-decoration: none; color: var(--text-muted); font-weight: 600;
+    padding: 0.5rem 0.85rem; border-radius: 999px; transition: background 0.15s, color 0.15s;
+  }
+  nav a.nav-link:hover { background: var(--border); color: var(--text); }
+  nav a.nav-link.active { background: var(--brand-soft); color: var(--brand-ink); }
   nav .spacer { flex: 1; }
-  .layout {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding: 0 1rem 2rem;
-  }
+  nav .nav-auth { display: flex; align-items: center; gap: 0.5rem; }
+
+  .layout { display: flex; flex-wrap: wrap; gap: 1.25rem; padding: 0 1.5rem 3rem; max-width: 1100px; margin: 0 auto; }
+  .layout.centered { justify-content: center; padding-top: 2rem; }
+  .auth-card { width: 100%; max-width: 420px; }
+  .auth-card h2 { margin-top: 0; }
+  .auth-card button[type=submit] { width: 100%; margin-top: 0.25rem; justify-content: center; }
   .panel {
-    background: white;
-    border: 1px solid #e3e3e6;
-    border-radius: 10px;
-    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.25rem;
   }
-  label { display: block; margin-bottom: 0.3rem; font-size: 0.85rem; font-weight: 600; color: #666; }
+  a.panel-link { display: block; text-decoration: none; color: inherit; transition: box-shadow 0.15s, transform 0.15s; }
+  a.panel-link:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
+
+  label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
   select, input[type=text], input[type=email], input[type=password], input[type=date], textarea {
-    width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 1rem;
-    font-family: inherit; font-size: 0.95rem; box-sizing: border-box;
+    width: 100%; padding: 0.55rem 0.7rem; border-radius: 9px; border: 1px solid var(--border);
+    margin-bottom: 1.1rem; font-family: inherit; font-size: 0.95rem; box-sizing: border-box;
+    background: var(--surface); color: var(--text); transition: border-color 0.15s, box-shadow 0.15s;
   }
+  select:focus, input:focus, textarea:focus {
+    outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft);
+  }
+
   button, .btn {
-    padding: 0.45rem 0.9rem; border-radius: 6px; border: 1px solid #ccc;
-    background: #f0f0f1; cursor: pointer; font-size: 0.9rem;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.55rem 1.1rem; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+    font-family: inherit; font-size: 0.9rem; font-weight: 700;
+    transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
   }
-  button:hover, .btn:hover { background: #e4e4e6; }
-  .error { color: #c0392b; font-size: 0.9rem; margin-bottom: 0.75rem; }
+  button:hover, .btn:hover { box-shadow: var(--shadow-hover); }
+  button:active, .btn:active { transform: scale(0.98); }
+  button[type=submit], .btn-primary {
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+    border-color: transparent; color: white;
+  }
+  nav button[type=submit] {
+    background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 600;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center; padding: 0.2rem 0.65rem;
+    border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+    background: var(--border); color: var(--text-muted);
+  }
+  .badge-5k { background: var(--c-5k-soft); color: var(--c-5k-ink); }
+  .badge-10k { background: var(--c-10k-soft); color: var(--c-10k-ink); }
+  .badge-half { background: var(--c-half-soft); color: var(--c-half-ink); }
+  .badge-marathon { background: var(--c-marathon-soft); color: var(--c-marathon-ink); }
+  .badge-ultra { background: var(--c-ultra-soft); color: var(--c-ultra-ink); }
+  .badge-pending { background: var(--c-half-soft); color: var(--c-half-ink); }
+  .badge-active { background: var(--c-10k-soft); color: var(--c-10k-ink); }
+
+  .avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.9rem; height: 1.9rem; border-radius: 50%; flex-shrink: 0;
+    color: white; font-weight: 700; font-size: 0.78rem;
+  }
+  .avatar-0 { background: #ff5a36; } .avatar-1 { background: #2563eb; }
+  .avatar-2 { background: #16a34a; } .avatar-3 { background: #b45309; }
+  .avatar-4 { background: #7c3aed; } .avatar-5 { background: #db2777; }
+  .avatar-6 { background: #0891b2; }
+
+  .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-muted); }
+  .empty-state .emoji { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+
+  .error { color: #c0392b; font-size: 0.88rem; margin-bottom: 0.9rem; padding: 0.6rem 0.85rem; background: var(--c-marathon-soft); border-radius: 9px; }
+  @media (prefers-color-scheme: dark) { .error { color: var(--c-marathon-ink); } }
+  .success-box { font-size: 0.9rem; margin-bottom: 0.9rem; padding: 0.7rem 0.9rem; background: var(--c-10k-soft); color: var(--c-10k-ink); border-radius: 9px; }
+
   {% block extra_style %}{% endblock %}
 </style>
 {% block head %}{% endblock %}
 </head>
 <body>
-<header>🏃 South Africa Race Calendar</header>
+<header class="brand"><span class="logo-mark">🏃</span> South Africa Race Calendar</header>
 <nav>
-  <a href="/" class="{{ 'active' if active_tab == 'races' else '' }}">Races</a>
-  <a href="/werun/clubs" class="{{ 'active' if active_tab == 'clubs' else '' }}">Clubs</a>
-  <a href="/werun/first-marathon" class="{{ 'active' if active_tab == 'first-marathon' else '' }}">My First Marathon</a>
+  <a href="/" class="nav-link {{ 'active' if active_tab == 'races' else '' }}">🏁 Races</a>
+  <a href="/werun/clubs" class="nav-link {{ 'active' if active_tab == 'clubs' else '' }}">👥 Clubs</a>
+  <a href="/werun/first-marathon" class="nav-link {{ 'active' if active_tab == 'first-marathon' else '' }}">🎽 My First Marathon</a>
   <span class="spacer"></span>
-  {% if current_user %}
-    <a href="/werun/profile" class="{{ 'active' if active_tab == 'profile' else '' }}">{{ current_user.display_name }}</a>
-    <form method="post" action="/werun/logout" style="display:inline; margin:0;">
-      <button type="submit">Log out</button>
-    </form>
-  {% else %}
-    <a href="/werun/login">Log in</a>
-    <a href="/werun/signup">Sign up</a>
-  {% endif %}
+  <div class="nav-auth">
+    {% if current_user %}
+      <a href="/werun/profile" class="nav-link {{ 'active' if active_tab == 'profile' else '' }}">👤 {{ current_user.display_name }}</a>
+      <form method="post" action="/werun/logout" style="display:inline; margin:0;">
+        <button type="submit">Log out</button>
+      </form>
+    {% else %}
+      <a href="/werun/login" class="nav-link">Log in</a>
+      <a href="/werun/signup" class="btn btn-primary" style="text-decoration:none;">Sign up</a>
+    {% endif %}
+  </div>
 </nav>
 {% block content %}{% endblock %}
 {% block scripts %}{% endblock %}

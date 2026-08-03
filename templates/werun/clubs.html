@@ -1,15 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Clubs - WeRun{% endblock %}
 {% block extra_style %}
-  .club-row { border-bottom: 1px solid #e3e3e6; padding: 0.75rem 0; }
-  .club-row:last-child { border-bottom: none; }
-  .club-row a { font-weight: 600; text-decoration: none; opacity: 1; }
-  .club-meta { font-size: 0.85rem; color: #888; margin-top: 0.15rem; }
+  .club-card {
+    display: flex; align-items: center; gap: 0.85rem;
+    padding: 0.9rem 0.75rem; border-radius: 11px; margin: 0 -0.75rem;
+    transition: background 0.15s;
+  }
+  .club-card:hover { background: var(--bg); }
+  .club-card .club-icon {
+    width: 2.6rem; height: 2.6rem; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+    background: var(--brand-soft);
+  }
+  .club-card .club-name { font-weight: 700; font-size: 1rem; }
+  .club-card .club-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.1rem; }
+  .club-card + .club-card { border-top: 1px solid var(--border); }
 {% endblock %}
 {% block content %}
 <div class="layout">
-  <div id="filters" class="panel" style="flex: 0 0 220px; height: fit-content;">
-    <h3 style="margin-top:0;font-size:0.9rem;text-transform:uppercase;letter-spacing:.04em;color:#888;">Province</h3>
+  <div id="filters" class="panel" style="flex: 0 0 240px; height: fit-content;">
+    <h3 style="margin-top:0;font-size:0.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);">Province</h3>
     <form method="get" action="/werun/clubs">
       <select name="province" onchange="this.form.submit()">
         <option value="">All provinces</option>
@@ -21,18 +31,24 @@
   </div>
 
   <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
-    <h2 style="margin-top:0;">Running clubs & groups</h2>
+    <h2 style="margin-top:0;">👥 Running clubs & groups</h2>
     {% if not clubs %}
-      <p>No clubs listed yet{{ ' in ' + selected_province if selected_province else '' }}.</p>
+      <div class="empty-state">
+        <span class="emoji">🏜️</span>
+        No clubs listed yet{{ ' in ' + selected_province if selected_province else '' }}. Be the first to add one below!
+      </div>
     {% endif %}
     {% for club in clubs %}
-    <div class="club-row">
-      <a href="/werun/clubs/{{ club.id }}">{{ club.name }}</a>
-      <div class="club-meta">
-        {{ club.city + ', ' if club.city else '' }}{{ club.province }}
-        {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
+    <a href="/werun/clubs/{{ club.id }}" class="club-card" style="text-decoration:none;color:inherit;">
+      <div class="club-icon">🏃</div>
+      <div>
+        <div class="club-name">{{ club.name }}</div>
+        <div class="club-meta">
+          {{ club.city + ', ' if club.city else '' }}{{ club.province }}
+          {% if club.meeting_schedule %} &middot; {{ club.meeting_schedule }}{% endif %}
+        </div>
       </div>
-    </div>
+    </a>
     {% endfor %}
 
     <h3 style="margin-top:2rem;">Add your club</h3>
@@ -59,7 +75,7 @@
         <label for="meeting_schedule">Meeting schedule</label>
         <input type="text" id="meeting_schedule" name="meeting_schedule" placeholder="e.g. Tuesdays &amp; Saturdays, 6am">
 
-        <button type="submit">Create club</button>
+        <button type="submit">🏃 Create club</button>
       </form>
     {% else %}
       <p><a href="/werun/login">Log in</a> to add a club.</p>

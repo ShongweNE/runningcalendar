@@ -66,6 +66,15 @@ CREATE TABLE IF NOT EXISTS messages (
     body TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token_hash TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 """
 
 _pool: ConnectionPool | None = None
@@ -157,6 +166,46 @@ def update_profile(user_id: int, display_name: str, city: str | None, province: 
             """UPDATE users SET display_name=%s, city=%s, province=%s,
                experience_level=%s, bio=%s WHERE id=%s""",
             (display_name, city, province, experience_level, bio, user_id),
+        )
+
+
+def update_password(user_id: int, password_hash: str) -> None:
+    with get_pool().connection() as conn:
+        conn.execute("UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_id))
+
+
+# -- password reset tokens --------------------------------------------------
+# Only the SHA-256 hash of the raw token is ever stored -- a DB leak alone
+# can't be used to reset anyone's password, same reasoning as bcrypt for
+# login passwords, just with a fast hash since the raw token already has
+# 256 bits of entropy (unlike a human-chosen password).
+
+def create_password_reset_token(user_id: int, token_hash: str, expires_at) -> None:
+    with get_pool().connection() as conn:
+        conn.execute(
+            "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (%s, %s, %s)",
+            (user_id, token_hash, expires_at),
+        )
+
+
+def get_valid_reset_token(token_hash: str) -> dict | None:
+    with get_pool().connection() as conn:
+        return _one(
+            conn,
+            """SELECT * FROM password_reset_tokens
+               WHERE token_hash = %s AND used_at IS NULL AND expires_at > now()""",
+            (token_hash,),
+        )
+
+
+def consume_reset_token(token_id: int, user_id: int, new_password_hash: str) -> None:
+    """Marks the token used and updates the password in one transaction."""
+    with get_pool().connection() as conn:
+        conn.execute(
+            "UPDATE password_reset_tokens SET used_at = now() WHERE id = %s", (token_id,)
+        )
+        conn.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s", (new_password_hash, user_id)
         )
 
 

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Log in - WeRun{% endblock %}
 {% block content %}
-<div class="layout">
-  <div class="panel" style="max-width:420px;">
-    <h2>Log in to WeRun</h2>
+<div class="layout centered">
+  <div class="panel auth-card">
+    <h2>👋 Log in to WeRun</h2>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="post" action="/werun/login">
       <label for="email">Email</label>
@@ -15,6 +15,7 @@
       <button type="submit">Log in</button>
     </form>
     <p style="margin-top:1rem;font-size:0.9rem;">No account yet? <a href="/werun/signup">Sign up</a></p>
+    <p style="margin-top:0.35rem;font-size:0.9rem;"><a href="/werun/forgot-password">Forgot your password?</a></p>
   </div>
 </div>
 {% endblock %}
