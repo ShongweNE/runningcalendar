@@ -4,7 +4,8 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 {% endblock %}
 {% block extra_style %}
-  #filters { flex: 0 0 240px; height: fit-content; }
+  #filters { flex: 0 0 210px; height: fit-content; }
+  .dist-toggle { white-space: nowrap; }
   #filters h3 { margin-top: 0; font-size: 0.78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
   .dist-toggle {
     display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; font-weight: 600;
@@ -14,7 +15,7 @@
   .dist-toggle:hover { background: var(--border); }
   .dist-toggle input { width: auto; margin: 0; }
   .dist-toggle .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }
-  #calendar-wrap { flex: 1 1 480px; min-width: 280px; }
+  #calendar-wrap { flex: 1 1 auto; min-width: 280px; }
   .ics-link { display: flex; align-items: center; gap: 0.4rem; margin-top: 1.25rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; }
   .fc-event { cursor: pointer; border: none !important; }
   .fc-daygrid-event { color: var(--fc-event-text-color) !important; }
@@ -30,7 +31,7 @@
   .fc-button-primary:hover { box-shadow: var(--shadow-hover); }
 {% endblock %}
 {% block content %}
-<div class="layout">
+<div class="layout wide">
   <div id="filters" class="panel">
     <h3>Distance</h3>
     <label class="dist-toggle"><input type="checkbox" class="dist-filter" value="5km"><span class="dot" style="background:var(--c-5k-ink)"></span>5km</label>
