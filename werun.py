@@ -241,9 +241,10 @@ def club_detail(request: Request, club_id: int):
     user = auth.get_current_user(request)
     is_member = sdb.is_club_member(club_id, user["id"]) if user else False
     room_id = sdb.get_club_chat_room_id(club_id)
+    members = sdb.list_club_members(club_id) if is_member else []
     return templates.TemplateResponse(
         "werun/club_detail.html",
-        _ctx(request, active_tab="clubs", club=club, is_member=is_member, room_id=room_id),
+        _ctx(request, active_tab="clubs", club=club, is_member=is_member, room_id=room_id, members=members),
     )
 
 
@@ -284,6 +285,48 @@ def room_messages_post(request: Request, room_id: int, body: str = Form(...)):
     message = sdb.add_message(room_id, user["id"], body)
     message["created_at"] = message["created_at"].isoformat()
     return JSONResponse(message)
+
+
+# -- direct messages & chat inbox -------------------------------------------
+
+@router.get("/chats", response_class=HTMLResponse)
+def chats_list(request: Request):
+    user = auth.get_current_user(request)
+    if user is None:
+        return _login_redirect()
+    rooms = sdb.list_user_rooms(user["id"])
+    return templates.TemplateResponse(
+        "werun/chats.html", _ctx(request, active_tab="chats", rooms=rooms)
+    )
+
+
+@router.post("/dm/{other_user_id}")
+def dm_start(request: Request, other_user_id: int):
+    user = auth.get_current_user(request)
+    if user is None:
+        return _login_redirect()
+    if other_user_id == user["id"]:
+        raise HTTPException(status_code=400, detail="You can't message yourself")
+    if sdb.get_user_by_id(other_user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    room_id = sdb.get_or_create_dm_room(user["id"], other_user_id)
+    return RedirectResponse(f"/werun/dm/{room_id}", status_code=303)
+
+
+@router.get("/dm/{room_id}", response_class=HTMLResponse)
+def dm_chat(request: Request, room_id: int):
+    user = auth.get_current_user(request)
+    if user is None:
+        return _login_redirect()
+    room = sdb.get_chat_room(room_id)
+    if room is None or room["kind"] != "dm" or not sdb.user_can_access_room(user["id"], room_id):
+        raise HTTPException(status_code=404, detail="Chat not found")
+    other_id = room["user_b_id"] if room["user_a_id"] == user["id"] else room["user_a_id"]
+    other = sdb.get_user_by_id(other_id)
+    return templates.TemplateResponse(
+        "werun/dm_chat.html",
+        _ctx(request, active_tab="chats", other=other, room_id=room_id),
+    )
 
 
 # -- My First Marathon (mentor pairing) -------------------------------------

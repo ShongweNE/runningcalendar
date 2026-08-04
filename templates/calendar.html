@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
             events.push({
               title: `${race.name} (${price})`,
               start: race.date,
-              url: race.source_url,
+              url: '/races/' + encodeURIComponent(race.dedup_key),
               extendedProps: race,
               classNames: [badgeClassFor(race.distances || [])],
             });
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     eventClick: function (info) {
       info.jsEvent.preventDefault();
-      window.open(info.event.url, '_blank');
+      window.location.href = info.event.url;
     },
   });
   calendar.render();

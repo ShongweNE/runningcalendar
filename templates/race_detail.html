@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ race.name }} - SA Race Calendar{% endblock %}
+{% block extra_style %}
+  .attendee-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; }
+{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <div style="display:flex;align-items:flex-start;gap:0.9rem;">
+      <div style="width:3rem;height:3rem;border-radius:11px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">🏁</div>
+      <div>
+        <h2 style="margin:0 0 0.2rem;">{{ race.name }}</h2>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin:0;">
+          {{ race.date }}
+          {% if race.city or race.province %} &middot; {{ race.city + ', ' if race.city else '' }}{{ race.province }}{% endif %}
+          {% if race.price_from %} &middot; from R{{ '%g' | format(race.price_from) }}{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-top:0.9rem;display:flex;flex-wrap:wrap;gap:0.4rem;">
+      {% for d in race.distances %}
+        {% set dl = d.lower() %}
+        {% if 'ultra' in dl or 'trail' in dl %}
+          <span class="badge badge-ultra">{{ d }}</span>
+        {% elif 'half' in dl %}
+          <span class="badge badge-half">{{ d }}</span>
+        {% elif 'marathon' in dl %}
+          <span class="badge badge-marathon">{{ d }}</span>
+        {% elif '10km' in dl or '10 km' in dl %}
+          <span class="badge badge-10k">{{ d }}</span>
+        {% elif '5km' in dl or '5 km' in dl %}
+          <span class="badge badge-5k">{{ d }}</span>
+        {% else %}
+          <span class="badge">{{ d }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <a href="{{ race.source_url }}" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:1.25rem;text-decoration:none;">
+      🔗 Register on {{ race.source_site }}
+    </a>
+
+    <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+      <p style="font-weight:700;margin:0 0 0.6rem;">
+        🎽 {{ attendee_count }} WeRun runner{{ '' if attendee_count == 1 else 's' }} going
+      </p>
+
+      {% if not current_user %}
+        <p style="color:var(--text-muted);font-size:0.9rem;"><a href="/werun/login">Log in</a> to mark yourself as running and see who else is going.</p>
+      {% else %}
+        {% if is_attending %}
+          <form method="post" action="/races/{{ race.dedup_key }}/unattend">
+            <button type="submit">✓ You're running this &mdash; remove</button>
+          </form>
+        {% else %}
+          <form method="post" action="/races/{{ race.dedup_key }}/attend">
+            <button type="submit" class="btn-primary">🎽 I'm running this</button>
+          </form>
+        {% endif %}
+
+        {% if attendees_unavailable %}
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:0.75rem;">Attendee info is temporarily unavailable.</p>
+        {% else %}
+          {% if attendees_known %}
+          <div style="margin-top:1rem;">
+            <h3 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:0.4rem;">People you know going</h3>
+            {% for a in attendees_known %}
+            <div class="attendee-row">
+              <div class="avatar avatar-{{ loop.index0 % 7 }}">{{ a.display_name[0] | upper }}</div>
+              <div>{{ a.display_name }}{% if a.city %} <span style="color:var(--text-muted);font-size:0.85rem;">&middot; {{ a.city }}</span>{% endif %}</div>
+              <form method="post" action="/werun/dm/{{ a.user_id }}" style="margin:0 0 0 auto;">
+                <button type="submit" style="padding:0.3rem 0.7rem;font-size:0.78rem;">💬 Message</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if attendees_other %}
+          <div style="margin-top:1rem;">
+            <h3 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:0.4rem;">Other WeRun runners going</h3>
+            {% for a in attendees_other %}
+            <div class="attendee-row">
+              <div class="avatar avatar-{{ loop.index0 % 7 }}">{{ a.display_name[0] | upper }}</div>
+              <div>{{ a.display_name }}{% if a.city %} <span style="color:var(--text-muted);font-size:0.85rem;">&middot; {{ a.city }}</span>{% endif %}</div>
+              <form method="post" action="/werun/dm/{{ a.user_id }}" style="margin:0 0 0 auto;">
+                <button type="submit" style="padding:0.3rem 0.7rem;font-size:0.78rem;">💬 Message</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if not attendees_known and not attendees_other %}
+          <p style="color:var(--text-muted);font-size:0.85rem;margin-top:0.75rem;">No one else from WeRun has marked this yet &mdash; be the first!</p>
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

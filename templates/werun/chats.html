@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Chats - WeRun{% endblock %}
+{% block extra_style %}
+  .chat-list-row {
+    display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--border); text-decoration: none; color: inherit;
+  }
+  .chat-list-row:last-child { border-bottom: none; }
+  .chat-list-row:hover { background: var(--bg); }
+  .chat-list-body { flex: 1; min-width: 0; }
+  .chat-list-title { font-weight: 700; }
+  .chat-list-preview {
+    color: var(--text-muted); font-size: 0.85rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chat-list-time { color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
+  .chat-list-kind { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <h2 style="margin-top:0;">💬 Chats</h2>
+    {% if not rooms %}
+      <div class="empty-state">
+        <span class="emoji">💬</span>
+        No conversations yet. Join a club or message a fellow runner from a race page to get started.
+      </div>
+    {% else %}
+      {% for r in rooms %}
+      <a class="chat-list-row" href="{{ r.target }}">
+        <div class="avatar avatar-{{ loop.index0 % 7 }}">{{ r.title[0] | upper }}</div>
+        <div class="chat-list-body">
+          <div class="chat-list-title">{{ r.title }}</div>
+          <div class="chat-list-preview">{{ r.last_body or 'No messages yet' }}</div>
+        </div>
+        <div style="text-align:right;">
+          {% if r.last_at %}<div class="chat-list-time">{{ r.last_at.strftime('%d %b') }}</div>{% endif %}
+          <div class="chat-list-kind">{{ r.kind }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

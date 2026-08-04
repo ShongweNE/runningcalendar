@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
@@ -50,14 +51,45 @@ CREATE TABLE IF NOT EXISTS pairings (
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
     id SERIAL PRIMARY KEY,
-    kind TEXT NOT NULL CHECK (kind IN ('club', 'pairing')),
+    kind TEXT NOT NULL CHECK (kind IN ('club', 'pairing', 'dm')),
     club_id INTEGER UNIQUE REFERENCES clubs(id),
     pairing_id INTEGER UNIQUE REFERENCES pairings(id),
+    user_a_id INTEGER REFERENCES users(id),
+    user_b_id INTEGER REFERENCES users(id),
     CHECK (
-        (kind = 'club' AND club_id IS NOT NULL AND pairing_id IS NULL) OR
-        (kind = 'pairing' AND pairing_id IS NOT NULL AND club_id IS NULL)
+        (kind = 'club' AND club_id IS NOT NULL AND pairing_id IS NULL AND user_a_id IS NULL AND user_b_id IS NULL) OR
+        (kind = 'pairing' AND pairing_id IS NOT NULL AND club_id IS NULL AND user_a_id IS NULL AND user_b_id IS NULL) OR
+        (kind = 'dm' AND user_a_id IS NOT NULL AND user_b_id IS NOT NULL AND club_id IS NULL AND pairing_id IS NULL)
     )
 );
+
+-- The two ALTER statements below are the migration path for a chat_rooms
+-- table that already exists in Supabase from before DMs were added --
+-- CREATE TABLE IF NOT EXISTS above is a no-op there, so the new columns and
+-- widened CHECK/kind constraint have to be applied out-of-band. Both are
+-- idempotent (IF NOT EXISTS / DROP+re-ADD) so re-running SCHEMA on every
+-- startup, as init_schema() already does, stays safe.
+ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS user_a_id INTEGER REFERENCES users(id);
+ALTER TABLE chat_rooms ADD COLUMN IF NOT EXISTS user_b_id INTEGER REFERENCES users(id);
+CREATE UNIQUE INDEX IF NOT EXISTS chat_rooms_dm_pair_idx ON chat_rooms (user_a_id, user_b_id);
+
+DO $$
+DECLARE con RECORD;
+BEGIN
+    FOR con IN
+        SELECT conname FROM pg_constraint
+        WHERE conrelid = 'chat_rooms'::regclass AND contype = 'c'
+    LOOP
+        EXECUTE 'ALTER TABLE chat_rooms DROP CONSTRAINT ' || quote_ident(con.conname);
+    END LOOP;
+    ALTER TABLE chat_rooms ADD CONSTRAINT chat_rooms_kind_check
+        CHECK (kind IN ('club', 'pairing', 'dm'));
+    ALTER TABLE chat_rooms ADD CONSTRAINT chat_rooms_shape_check CHECK (
+        (kind = 'club' AND club_id IS NOT NULL AND pairing_id IS NULL AND user_a_id IS NULL AND user_b_id IS NULL) OR
+        (kind = 'pairing' AND pairing_id IS NOT NULL AND club_id IS NULL AND user_a_id IS NULL AND user_b_id IS NULL) OR
+        (kind = 'dm' AND user_a_id IS NOT NULL AND user_b_id IS NOT NULL AND club_id IS NULL AND pairing_id IS NULL)
+    );
+END $$;
 
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
@@ -74,6 +106,25 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     expires_at TIMESTAMPTZ NOT NULL,
     used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- race_dedup_key deliberately has no foreign key -- it references a row in
+-- races.db, a *separate SQLite database* that's expected to be wiped and
+-- rebuilt on every Render redeploy. dedup_key is deterministic (normalized
+-- name + date), so the same real-world race keeps the same key across
+-- rescrapes and this reference stays valid in the common case. It can orphan
+-- if a race is delisted after it happens (harmless) or a source site tweaks
+-- a race's name between scrapes (rare, pre-existing dedup fragility, not
+-- introduced here). Accepted, not solved -- race_name is stored as a
+-- denormalized snapshot so a future "my races" view could still show
+-- something meaningful even if the live SQLite row is gone.
+CREATE TABLE IF NOT EXISTS race_attendances (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    race_dedup_key TEXT NOT NULL,
+    race_name TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, race_dedup_key)
 );
 """
 
@@ -264,6 +315,17 @@ def get_club_chat_room_id(club_id: int) -> int | None:
         return row[0] if row else None
 
 
+def list_club_members(club_id: int) -> list[dict]:
+    with get_pool().connection() as conn:
+        return _all(
+            conn,
+            """SELECT u.id AS user_id, u.display_name, u.city, cm.role
+               FROM club_members cm JOIN users u ON u.id = cm.user_id
+               WHERE cm.club_id = %s ORDER BY cm.role, u.display_name""",
+            (club_id,),
+        )
+
+
 # -- pairings (My First Marathon) -----------------------------------------
 
 def create_pairing_request(mentee_id: int, target_race: str | None, note: str | None) -> int:
@@ -338,10 +400,79 @@ def user_can_access_room(user_id: int, room_id: int) -> bool:
         return False
     if room["kind"] == "club":
         return is_club_member(room["club_id"], user_id)
+    if room["kind"] == "dm":
+        return user_id in (room["user_a_id"], room["user_b_id"])
     pairing = get_pairing(room["pairing_id"])
     if pairing is None:
         return False
     return user_id in (pairing["mentee_id"], pairing["mentor_id"])
+
+
+# -- direct messages -------------------------------------------------------
+
+def get_or_create_dm_room(user_id: int, other_user_id: int) -> int:
+    user_a_id, user_b_id = sorted((user_id, other_user_id))
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT id FROM chat_rooms WHERE user_a_id = %s AND user_b_id = %s",
+            (user_a_id, user_b_id),
+        ).fetchone()
+        if row is not None:
+            return row[0]
+        row = conn.execute(
+            """INSERT INTO chat_rooms (kind, user_a_id, user_b_id) VALUES ('dm', %s, %s)
+               ON CONFLICT (user_a_id, user_b_id) DO UPDATE SET kind = 'dm'
+               RETURNING id""",
+            (user_a_id, user_b_id),
+        ).fetchone()
+        return row[0]
+
+
+def list_user_rooms(user_id: int) -> list[dict]:
+    """All rooms (club, dm, pairing) this user belongs to, each with a
+    ready-to-link target URL and a preview of the most recent message,
+    newest activity first -- powers the /werun/chats inbox."""
+    with get_pool().connection() as conn:
+        rooms = _all(
+            conn,
+            """
+            SELECT cr.id AS room_id, 'club' AS kind, c.name AS title,
+                   '/werun/clubs/' || c.id AS target
+            FROM chat_rooms cr
+            JOIN clubs c ON c.id = cr.club_id
+            JOIN club_members cm ON cm.club_id = c.id
+            WHERE cr.kind = 'club' AND cm.user_id = %s
+
+            UNION ALL
+
+            SELECT cr.id AS room_id, 'dm' AS kind, u.display_name AS title,
+                   '/werun/dm/' || cr.id AS target
+            FROM chat_rooms cr
+            JOIN users u ON u.id = (CASE WHEN cr.user_a_id = %s THEN cr.user_b_id ELSE cr.user_a_id END)
+            WHERE cr.kind = 'dm' AND (cr.user_a_id = %s OR cr.user_b_id = %s)
+
+            UNION ALL
+
+            SELECT cr.id AS room_id, 'pairing' AS kind,
+                   'Mentor chat: ' || u.display_name AS title,
+                   '/werun/pairings/' || p.id AS target
+            FROM chat_rooms cr
+            JOIN pairings p ON p.id = cr.pairing_id
+            JOIN users u ON u.id = (CASE WHEN p.mentee_id = %s THEN p.mentor_id ELSE p.mentee_id END)
+            WHERE cr.kind = 'pairing' AND (p.mentee_id = %s OR p.mentor_id = %s)
+            """,
+            (user_id, user_id, user_id, user_id, user_id, user_id, user_id),
+        )
+        for r in rooms:
+            last = _one(
+                conn,
+                "SELECT body, created_at FROM messages WHERE room_id = %s ORDER BY id DESC LIMIT 1",
+                (r["room_id"],),
+            )
+            r["last_body"] = last["body"] if last else None
+            r["last_at"] = last["created_at"] if last else None
+        rooms.sort(key=lambda r: r["last_at"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        return rooms
 
 
 def add_message(room_id: int, user_id: int, body: str) -> dict:
@@ -363,3 +494,69 @@ def list_messages(room_id: int, since_id: int = 0) -> list[dict]:
                WHERE m.room_id = %s AND m.id > %s ORDER BY m.id""",
             (room_id, since_id),
         )
+
+
+# -- race attendance (social race-day coordination) -------------------------
+
+def mark_attending(user_id: int, race_dedup_key: str, race_name: str) -> None:
+    with get_pool().connection() as conn:
+        conn.execute(
+            """INSERT INTO race_attendances (user_id, race_dedup_key, race_name)
+               VALUES (%s, %s, %s) ON CONFLICT (user_id, race_dedup_key) DO NOTHING""",
+            (user_id, race_dedup_key, race_name),
+        )
+
+
+def unmark_attending(user_id: int, race_dedup_key: str) -> None:
+    with get_pool().connection() as conn:
+        conn.execute(
+            "DELETE FROM race_attendances WHERE user_id = %s AND race_dedup_key = %s",
+            (user_id, race_dedup_key),
+        )
+
+
+def is_attending(user_id: int, race_dedup_key: str) -> bool:
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM race_attendances WHERE user_id = %s AND race_dedup_key = %s",
+            (user_id, race_dedup_key),
+        ).fetchone()
+        return row is not None
+
+
+def count_attendees(race_dedup_key: str) -> int:
+    with get_pool().connection() as conn:
+        row = conn.execute(
+            "SELECT count(*) FROM race_attendances WHERE race_dedup_key = %s", (race_dedup_key,)
+        ).fetchone()
+        return row[0]
+
+
+def list_attendees(race_dedup_key: str) -> list[dict]:
+    with get_pool().connection() as conn:
+        return _all(
+            conn,
+            """SELECT u.id AS user_id, u.display_name, u.city
+               FROM race_attendances ra JOIN users u ON u.id = ra.user_id
+               WHERE ra.race_dedup_key = %s ORDER BY ra.created_at""",
+            (race_dedup_key,),
+        )
+
+
+def get_known_user_ids(user_id: int) -> set[int]:
+    """Other users who share a club with this user, or have an active pairing
+    with them (either direction). Used to bucket a race's attendee list into
+    "people you know" vs everyone else."""
+    with get_pool().connection() as conn:
+        rows = conn.execute(
+            """SELECT cm2.user_id
+               FROM club_members cm1 JOIN club_members cm2
+                 ON cm1.club_id = cm2.club_id AND cm2.user_id != cm1.user_id
+               WHERE cm1.user_id = %s
+               UNION
+               SELECT CASE WHEN mentee_id = %s THEN mentor_id ELSE mentee_id END
+               FROM pairings
+               WHERE status = 'active' AND (mentee_id = %s OR mentor_id = %s)""",
+            (user_id, user_id, user_id, user_id),
+        ).fetchall()
+        return {row[0] for row in rows}

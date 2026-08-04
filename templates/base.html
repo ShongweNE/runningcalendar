@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}SA Race Calendar{% endblock %}</title>
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#ff5a36">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet">
 <style>
@@ -172,6 +176,7 @@
 <header class="brand"><span class="logo-mark">🏃</span> South Africa Race Calendar</header>
 <nav>
   <a href="/" class="nav-link {{ 'active' if active_tab == 'races' else '' }}">🏁 Races</a>
+  <a href="/werun/chats" class="nav-link {{ 'active' if active_tab == 'chats' else '' }}">💬 Chats</a>
   <a href="/werun/clubs" class="nav-link {{ 'active' if active_tab == 'clubs' else '' }}">👥 Clubs</a>
   <a href="/werun/first-marathon" class="nav-link {{ 'active' if active_tab == 'first-marathon' else '' }}">🎽 My First Marathon</a>
   <span class="spacer"></span>
@@ -189,5 +194,12 @@
 </nav>
 {% block content %}{% endblock %}
 {% block scripts %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/static/sw.js').catch(function () {});
+  });
+}
+</script>
 </body>
 </html>

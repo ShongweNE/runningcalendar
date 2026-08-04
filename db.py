@@ -89,3 +89,10 @@ def get_upcoming_races(from_date: date | None = None) -> list[sqlite3.Row]:
     ).fetchall()
     conn.close()
     return rows
+
+
+def get_race_by_dedup_key(dedup_key: str) -> sqlite3.Row | None:
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM races WHERE dedup_key = ?", (dedup_key,)).fetchone()
+    conn.close()
+    return row

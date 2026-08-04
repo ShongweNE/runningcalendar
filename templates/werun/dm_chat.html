@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ other.display_name }} - WeRun{% endblock %}
+{% block content %}
+<div class="layout">
+  <div class="panel" style="flex: 1 1 480px; min-width: 280px;">
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <div class="avatar avatar-{{ other.id % 7 }}">{{ other.display_name[0] | upper }}</div>
+      <div>
+        <h2 style="margin:0;">{{ other.display_name }}</h2>
+        {% if other.city or other.province %}
+        <p style="color:var(--text-muted);font-size:0.85rem;margin:0.1rem 0 0;">
+          {{ other.city + ', ' if other.city else '' }}{{ other.province }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+    {% include "werun/_chat.html" %}
+  </div>
+</div>
+{% endblock %}

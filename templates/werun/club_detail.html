@@ -23,6 +23,24 @@
       </form>
     {% else %}
       <span class="badge badge-active" style="margin-top:1rem;">✓ You're a member</span>
+
+      {% if members %}
+      <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+        <h3 style="font-size:0.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:0.4rem;">Members</h3>
+        {% for m in members %}
+        <div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;">
+          <div class="avatar avatar-{{ loop.index0 % 7 }}">{{ m.display_name[0] | upper }}</div>
+          <div style="flex:1;">{{ m.display_name }}{% if m.city %} <span style="color:var(--text-muted);font-size:0.85rem;">&middot; {{ m.city }}</span>{% endif %}</div>
+          {% if m.user_id != current_user.id %}
+          <form method="post" action="/werun/dm/{{ m.user_id }}" style="margin:0;">
+            <button type="submit" style="padding:0.3rem 0.7rem;font-size:0.78rem;">💬 Message</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% include "werun/_chat.html" %}
     {% endif %}
   </div>

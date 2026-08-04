@@ -10,14 +10,15 @@ from dotenv import load_dotenv
 
 load_dotenv()  # local dev only: Render sets real env vars directly, this is a no-op there
 
-from fastapi import FastAPI, Query, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 import auth
 import social_db as sdb
-from db import get_upcoming_races
+from db import get_race_by_dedup_key, get_upcoming_races
 from ics_feed import build_ics
 from scheduler import start_scheduler
 from scrapers.run_all import run_all
@@ -60,11 +61,13 @@ app.add_middleware(
     SessionMiddleware, secret_key=SECRET_KEY, https_only=SESSION_HTTPS_ONLY
 )
 app.include_router(werun_router)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 def _row_to_dict(row) -> dict:
     return {
+        "dedup_key": row["dedup_key"],
         "name": row["name"],
         "date": row["race_date"],
         "distances": json.loads(row["distances"]),
@@ -108,3 +111,70 @@ def calendar_ics():
     rows = get_upcoming_races()
     races = [_row_to_dict(r) for r in rows]
     return PlainTextResponse(build_ics(races), media_type="text/calendar")
+
+
+@app.get("/races/{dedup_key}", response_class=None)
+def race_detail(request: Request, dedup_key: str):
+    row = get_race_by_dedup_key(dedup_key)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Race not found")
+    race = _row_to_dict(row)
+
+    current_user = auth.get_current_user(request)
+    attendee_count = 0
+    attendees_known: list[dict] = []
+    attendees_other: list[dict] = []
+    is_attending = False
+    attendees_unavailable = False
+    try:
+        attendee_count = sdb.count_attendees(dedup_key)
+        if current_user:
+            is_attending = sdb.is_attending(current_user["id"], dedup_key)
+            attendees = sdb.list_attendees(dedup_key)
+            known_ids = sdb.get_known_user_ids(current_user["id"])
+            attendees_known = [a for a in attendees if a["user_id"] in known_ids]
+            attendees_other = [
+                a for a in attendees
+                if a["user_id"] not in known_ids and a["user_id"] != current_user["id"]
+            ]
+    except Exception:
+        logger.exception("Attendance lookup failed for %s; degrading gracefully", dedup_key)
+        attendees_unavailable = True
+
+    return templates.TemplateResponse(
+        "race_detail.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "active_tab": "races",
+            "race": race,
+            "attendee_count": attendee_count,
+            "attendees_known": attendees_known,
+            "attendees_other": attendees_other,
+            "is_attending": is_attending,
+            "attendees_unavailable": attendees_unavailable,
+        },
+    )
+
+
+@app.post("/races/{dedup_key}/attend")
+def race_attend(request: Request, dedup_key: str):
+    user = auth.get_current_user(request)
+    if user is None:
+        return RedirectResponse("/werun/login", status_code=303)
+    row = get_race_by_dedup_key(dedup_key)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Race not found")
+    sdb.mark_attending(user["id"], dedup_key, row["name"])
+    return RedirectResponse(f"/races/{dedup_key}", status_code=303)
+
+
+@app.post("/races/{dedup_key}/unattend")
+def race_unattend(request: Request, dedup_key: str):
+    user = auth.get_current_user(request)
+    if user is None:
+        return RedirectResponse("/werun/login", status_code=303)
+    if get_race_by_dedup_key(dedup_key) is None:
+        raise HTTPException(status_code=404, detail="Race not found")
+    sdb.unmark_attending(user["id"], dedup_key)
+    return RedirectResponse(f"/races/{dedup_key}", status_code=303)

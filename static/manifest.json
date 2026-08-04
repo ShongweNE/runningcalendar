@@ -1,0 +1,13 @@
+{
+  "name": "WeRun - South Africa Race Calendar",
+  "short_name": "WeRun",
+  "description": "Race calendar and chat for South African runners",
+  "start_url": "/werun/chats",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f4",
+  "theme_color": "#ff5a36",
+  "icons": [
+    { "src": "/static/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
